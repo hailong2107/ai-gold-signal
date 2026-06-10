@@ -2,7 +2,7 @@ import Redis from "ioredis";
 
 const REDIS_HOST = process.env.REDIS_HOST ?? "use-gyroscopic-lithe-89201.db.redis.io";
 const REDIS_PORT = parseInt(process.env.REDIS_PORT ?? "17329", 10);
-const REDIS_PASSWORD = process.env.REDIS_PASSWORD;
+const REDIS_PASSWORD = process.env.REDIS_PASSWORD || undefined; // treat empty string as no password
 
 declare global {
   // eslint-disable-next-line no-var
@@ -13,12 +13,11 @@ function createRedisClient(): Redis {
   const client = new Redis({
     host: REDIS_HOST,
     port: REDIS_PORT,
-    password: REDIS_PASSWORD,
-    tls: {},
-    lazyConnect: true,
+    ...(REDIS_PASSWORD ? { password: REDIS_PASSWORD } : {}),
     maxRetriesPerRequest: 1,
-    connectTimeout: 3000,
-    commandTimeout: 2000,
+    connectTimeout: 5000,
+    commandTimeout: 3000,
+    retryStrategy: (times) => (times > 2 ? null : 500),
   });
 
   client.on("error", (err) => {
