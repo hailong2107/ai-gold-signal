@@ -1,91 +1,140 @@
 import type { GoldPrice, HistoricalPrice } from "@/types";
 
-const METALS_API_BASE = "https://api.metalpriceapi.com/v1";
+const YAHOO_BASE = "https://query2.finance.yahoo.com/v8/finance/chart";
+const TICKER = "GC%3DF"; // GC=F — Gold futures (XAU/USD spot proxy)
+const HEADERS = { "User-Agent": "Mozilla/5.0" };
+
+interface YahooMeta {
+  regularMarketPrice: number;
+  previousClose?: number;
+  chartPreviousClose?: number;
+  regularMarketDayHigh?: number;
+  regularMarketDayLow?: number;
+  regularMarketTime?: number;
+}
+
+interface YahooQuote {
+  open: (number | null)[];
+  high: (number | null)[];
+  low: (number | null)[];
+  close: (number | null)[];
+}
+
+interface YahooResult {
+  meta: YahooMeta;
+  timestamp: number[];
+  indicators: { quote: YahooQuote[] };
+}
+
+async function fetchYahoo(
+  interval: string,
+  range: string
+): Promise<YahooResult | null> {
+  try {
+    const url = `${YAHOO_BASE}/${TICKER}?interval=${interval}&range=${range}`;
+    const res = await fetch(url, {
+      headers: HEADERS,
+      next: { revalidate: 30 },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.chart?.result?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export async function fetchGoldPrice(): Promise<GoldPrice> {
-  const apiKey = process.env.GOLD_API_KEY;
+  const result = await fetchYahoo("1d", "2d");
 
-  if (apiKey) {
-    const res = await fetch(
-      `${METALS_API_BASE}/latest?api_key=${apiKey}&base=XAU&currencies=USD`,
-      { next: { revalidate: 30 } }
-    );
+  if (result) {
+    const meta = result.meta;
+    const price = meta.regularMarketPrice;
+    const prevClose = meta.previousClose ?? meta.chartPreviousClose ?? price;
+    const change = Math.round((price - prevClose) * 100) / 100;
+    const changePercent = Math.round((change / prevClose) * 10000) / 100;
 
-    if (res.ok) {
-      const data = await res.json();
-      const rate = data.rates?.XAUUSD ?? data.rates?.USD;
-      if (rate) {
-        const price = 1 / rate;
-        return buildGoldPrice(price);
-      }
-    }
+    return {
+      price: Math.round(price * 100) / 100,
+      change,
+      changePercent,
+      high: meta.regularMarketDayHigh ?? price,
+      low: meta.regularMarketDayLow ?? price,
+      timestamp: (meta.regularMarketTime ?? Date.now() / 1000) * 1000,
+      trend: change > 0 ? "up" : change < 0 ? "down" : "neutral",
+    };
   }
 
-  return fetchFallbackPrice();
+  return buildSimulatedPrice(3300);
 }
 
-async function fetchFallbackPrice(): Promise<GoldPrice> {
-  try {
-    const res = await fetch(
-      "https://data-asg.goldprice.org/dbXRates/USD",
-      { next: { revalidate: 30 } }
-    );
-    if (res.ok) {
-      const data = await res.json();
-      const item = data.items?.[0];
-      if (item) {
-        return {
-          price: item.xauPrice ?? 2340,
-          change: item.chgXau ?? 0,
-          changePercent: item.pcXau ?? 0,
-          high: item.xauPrice * 1.002,
-          low: item.xauPrice * 0.998,
-          timestamp: Date.now(),
-          trend: (item.chgXau ?? 0) > 0 ? "up" : (item.chgXau ?? 0) < 0 ? "down" : "neutral",
-        };
+export async function fetchHistoricalPrices(): Promise<HistoricalPrice[]> {
+  // ~200 hourly candles = ~8–9 days
+  const result = await fetchYahoo("1h", "9d");
+
+  if (result) {
+    const { timestamp, indicators } = result;
+    const quote = indicators.quote[0];
+    const candles: HistoricalPrice[] = [];
+
+    for (let i = 0; i < timestamp.length; i++) {
+      const open = quote.open[i];
+      const high = quote.high[i];
+      const low = quote.low[i];
+      const close = quote.close[i];
+
+      // Skip candles with missing data (market closed / pre-market gaps)
+      if (open == null || high == null || low == null || close == null) {
+        continue;
       }
+
+      candles.push({
+        time: timestamp[i],
+        open: Math.round(open * 100) / 100,
+        high: Math.round(high * 100) / 100,
+        low: Math.round(low * 100) / 100,
+        close: Math.round(close * 100) / 100,
+      });
     }
-  } catch {
-    // fallback below
+
+    if (candles.length >= 50) return candles;
   }
 
-  return buildGoldPrice(2340 + Math.random() * 20 - 10);
+  return buildSimulatedHistory(3300);
 }
 
-function buildGoldPrice(price: number): GoldPrice {
-  const change = (Math.random() - 0.48) * 15;
-  const changePercent = (change / price) * 100;
+// Fallback when Yahoo Finance is unreachable
+function buildSimulatedPrice(base: number): GoldPrice {
+  const change = Math.round((Math.random() - 0.48) * 20 * 100) / 100;
+  const price = base + change;
+  const changePercent = Math.round((change / base) * 10000) / 100;
   return {
-    price: Math.round(price * 100) / 100,
-    change: Math.round(change * 100) / 100,
-    changePercent: Math.round(changePercent * 10000) / 10000,
-    high: Math.round((price + Math.abs(change) * 1.2) * 100) / 100,
-    low: Math.round((price - Math.abs(change) * 0.8) * 100) / 100,
+    price,
+    change,
+    changePercent,
+    high: price + Math.abs(change) * 1.2,
+    low: price - Math.abs(change) * 0.8,
     timestamp: Date.now(),
     trend: change > 0 ? "up" : change < 0 ? "down" : "neutral",
   };
 }
 
-export async function fetchHistoricalPrices(): Promise<HistoricalPrice[]> {
-  const prices: HistoricalPrice[] = [];
-  const basePrice = 2340;
-  const now = Date.now();
-  const interval = 3600000;
+function buildSimulatedHistory(base: number): HistoricalPrice[] {
+  const candles: HistoricalPrice[] = [];
+  const now = Math.floor(Date.now() / 1000);
+  let price = base;
 
-  let price = basePrice;
   for (let i = 200; i >= 0; i--) {
-    const drift = (Math.random() - 0.495) * 8;
-    price = Math.max(2200, Math.min(2500, price + drift));
-    const high = price + Math.random() * 5;
-    const low = price - Math.random() * 5;
-    const open = price + (Math.random() - 0.5) * 3;
-    prices.push({
-      time: Math.floor((now - i * interval) / 1000),
-      open: Math.round(open * 100) / 100,
-      high: Math.round(high * 100) / 100,
-      low: Math.round(low * 100) / 100,
+    price = Math.max(base * 0.9, Math.min(base * 1.1, price + (Math.random() - 0.495) * 10));
+    const h = price + Math.random() * 5;
+    const l = price - Math.random() * 5;
+    candles.push({
+      time: now - i * 3600,
+      open: Math.round((price + (Math.random() - 0.5) * 3) * 100) / 100,
+      high: Math.round(h * 100) / 100,
+      low: Math.round(l * 100) / 100,
       close: Math.round(price * 100) / 100,
     });
   }
-  return prices;
+  return candles;
 }
