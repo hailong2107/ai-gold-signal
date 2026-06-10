@@ -1,4 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import {
+  getCachedSignal, setCachedSignal,
+  getCachedCommentary, setCachedCommentary,
+} from "@/lib/cache";
 import type { GoldPrice, TechnicalIndicators, AISignal, Timeframe } from "@/types";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");
@@ -8,6 +12,10 @@ export async function analyzeWithGemini(
   indicators: TechnicalIndicators,
   timeframe: Timeframe = "1H"
 ): Promise<AISignal> {
+  // ── Cache check ──────────────────────────────────────────────────────
+  const cached = await getCachedSignal<AISignal>(timeframe, price.price);
+  if (cached) return cached;
+
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `You are a professional gold (XAU/USD) market analyst. Analyze the data below and return a JSON trading signal.
@@ -56,7 +64,7 @@ Respond ONLY with valid JSON:
 
     const parsed = JSON.parse(jsonMatch[0]);
 
-    return {
+    const signal: AISignal = {
       signal: parsed.signal ?? "HOLD",
       confidence: Math.min(100, Math.max(0, parsed.confidence ?? 50)),
       risk: parsed.risk ?? "Medium",
@@ -68,8 +76,13 @@ Respond ONLY with valid JSON:
       timeframe,
       timestamp: Date.now(),
     };
+
+    await setCachedSignal(timeframe, price.price, signal);
+    return signal;
   } catch {
-    return buildFallbackSignal(price, indicators, timeframe);
+    const fallback = buildFallbackSignal(price, indicators, timeframe);
+    // Don't cache fallback — retry fresh on next request
+    return fallback;
   }
 }
 
@@ -77,6 +90,10 @@ export async function generateCommentary(
   price: GoldPrice,
   indicators: TechnicalIndicators
 ): Promise<{ en: string; vi: string; sentiment: "bullish" | "bearish" | "neutral" }> {
+  // ── Cache check ──────────────────────────────────────────────────────
+  const cached = await getCachedCommentary<{ en: string; vi: string; sentiment: "bullish" | "bearish" | "neutral" }>();
+  if (cached) return cached;
+
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `You are a senior gold market analyst. Write a short market commentary based on the data below.
@@ -110,11 +127,14 @@ Respond ONLY with JSON:
     if (!match) throw new Error("No JSON");
 
     const parsed = JSON.parse(match[0]);
-    return {
+    const commentary = {
       en: parsed.en ?? "Market conditions are being monitored.",
       vi: parsed.vi ?? "Thị trường đang được theo dõi.",
-      sentiment: parsed.sentiment ?? "neutral",
+      sentiment: parsed.sentiment ?? "neutral" as "bullish" | "bearish" | "neutral",
     };
+
+    await setCachedCommentary(commentary);
+    return commentary;
   } catch {
     return {
       en: "Gold is trading within its recent range. Monitor key support and resistance levels before entering any position.",
@@ -124,6 +144,7 @@ Respond ONLY with JSON:
   }
 }
 
+// Chat responses are never cached — each is personalized
 export async function generateChatResponse(
   message: string,
   context: {
