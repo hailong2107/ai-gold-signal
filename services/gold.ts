@@ -1,8 +1,20 @@
-import type { GoldPrice, HistoricalPrice } from "@/types";
+import type { GoldPrice, HistoricalPrice, Timeframe } from "@/types";
 
 const YAHOO_BASE = "https://query2.finance.yahoo.com/v8/finance/chart";
-const TICKER = "GC%3DF"; // GC=F — Gold futures (XAU/USD spot proxy)
+const TICKER = "GC%3DF"; // GC=F — Gold futures
 const HEADERS = { "User-Agent": "Mozilla/5.0" };
+
+// Yahoo Finance interval / range mapping per timeframe
+const TIMEFRAME_CONFIG: Record<
+  Timeframe,
+  { interval: string; range: string; resample?: number }
+> = {
+  "5M":  { interval: "5m",  range: "1d" },
+  "15M": { interval: "15m", range: "5d" },
+  "1H":  { interval: "1h",  range: "9d" },
+  "4H":  { interval: "60m", range: "30d", resample: 4 }, // group 60m → 4H
+  "1D":  { interval: "1d",  range: "1y" },
+};
 
 interface YahooMeta {
   regularMarketPrice: number;
@@ -32,10 +44,7 @@ async function fetchYahoo(
 ): Promise<YahooResult | null> {
   try {
     const url = `${YAHOO_BASE}/${TICKER}?interval=${interval}&range=${range}`;
-    const res = await fetch(url, {
-      headers: HEADERS,
-      next: { revalidate: 30 },
-    });
+    const res = await fetch(url, { headers: HEADERS, next: { revalidate: 30 } });
     if (!res.ok) return null;
     const data = await res.json();
     return data?.chart?.result?.[0] ?? null;
@@ -65,12 +74,14 @@ export async function fetchGoldPrice(): Promise<GoldPrice> {
     };
   }
 
-  return buildSimulatedPrice(3300);
+  return buildSimulatedPrice(4150);
 }
 
-export async function fetchHistoricalPrices(): Promise<HistoricalPrice[]> {
-  // ~200 hourly candles = ~8–9 days
-  const result = await fetchYahoo("1h", "9d");
+export async function fetchHistoricalPrices(
+  timeframe: Timeframe = "1H"
+): Promise<HistoricalPrice[]> {
+  const { interval, range, resample } = TIMEFRAME_CONFIG[timeframe];
+  const result = await fetchYahoo(interval, range);
 
   if (result) {
     const { timestamp, indicators } = result;
@@ -78,40 +89,51 @@ export async function fetchHistoricalPrices(): Promise<HistoricalPrice[]> {
     const candles: HistoricalPrice[] = [];
 
     for (let i = 0; i < timestamp.length; i++) {
-      const open = quote.open[i];
-      const high = quote.high[i];
-      const low = quote.low[i];
-      const close = quote.close[i];
-
-      // Skip candles with missing data (market closed / pre-market gaps)
-      if (open == null || high == null || low == null || close == null) {
-        continue;
-      }
+      const o = quote.open[i];
+      const h = quote.high[i];
+      const l = quote.low[i];
+      const c = quote.close[i];
+      if (o == null || h == null || l == null || c == null) continue;
 
       candles.push({
         time: timestamp[i],
-        open: Math.round(open * 100) / 100,
-        high: Math.round(high * 100) / 100,
-        low: Math.round(low * 100) / 100,
-        close: Math.round(close * 100) / 100,
+        open: Math.round(o * 100) / 100,
+        high: Math.round(h * 100) / 100,
+        low: Math.round(l * 100) / 100,
+        close: Math.round(c * 100) / 100,
       });
     }
 
-    if (candles.length >= 50) return candles;
+    const merged = resample ? resampleCandles(candles, resample) : candles;
+    if (merged.length >= 30) return merged;
   }
 
-  return buildSimulatedHistory(3300);
+  return buildSimulatedHistory(4150, timeframe);
 }
 
-// Fallback when Yahoo Finance is unreachable
+// Merge N consecutive 1H candles into one (e.g. 4H)
+function resampleCandles(candles: HistoricalPrice[], n: number): HistoricalPrice[] {
+  const result: HistoricalPrice[] = [];
+  for (let i = 0; i + n <= candles.length; i += n) {
+    const group = candles.slice(i, i + n);
+    result.push({
+      time: group[0].time,
+      open: group[0].open,
+      high: Math.max(...group.map((c) => c.high)),
+      low: Math.min(...group.map((c) => c.low)),
+      close: group[group.length - 1].close,
+    });
+  }
+  return result;
+}
+
 function buildSimulatedPrice(base: number): GoldPrice {
   const change = Math.round((Math.random() - 0.48) * 20 * 100) / 100;
   const price = base + change;
-  const changePercent = Math.round((change / base) * 10000) / 100;
   return {
-    price,
+    price: Math.round(price * 100) / 100,
     change,
-    changePercent,
+    changePercent: Math.round((change / base) * 10000) / 100,
     high: price + Math.abs(change) * 1.2,
     low: price - Math.abs(change) * 0.8,
     timestamp: Date.now(),
@@ -119,20 +141,25 @@ function buildSimulatedPrice(base: number): GoldPrice {
   };
 }
 
-function buildSimulatedHistory(base: number): HistoricalPrice[] {
+function buildSimulatedHistory(
+  base: number,
+  timeframe: Timeframe
+): HistoricalPrice[] {
+  const intervalSecs: Record<Timeframe, number> = {
+    "5M": 300, "15M": 900, "1H": 3600, "4H": 14400, "1D": 86400,
+  };
+  const seconds = intervalSecs[timeframe];
   const candles: HistoricalPrice[] = [];
   const now = Math.floor(Date.now() / 1000);
   let price = base;
 
   for (let i = 200; i >= 0; i--) {
     price = Math.max(base * 0.9, Math.min(base * 1.1, price + (Math.random() - 0.495) * 10));
-    const h = price + Math.random() * 5;
-    const l = price - Math.random() * 5;
     candles.push({
-      time: now - i * 3600,
+      time: now - i * seconds,
       open: Math.round((price + (Math.random() - 0.5) * 3) * 100) / 100,
-      high: Math.round(h * 100) / 100,
-      low: Math.round(l * 100) / 100,
+      high: Math.round((price + Math.random() * 5) * 100) / 100,
+      low: Math.round((price - Math.random() * 5) * 100) / 100,
       close: Math.round(price * 100) / 100,
     });
   }

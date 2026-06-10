@@ -1,7 +1,23 @@
+import createMiddleware from "next-intl/middleware";
 import { createServerClient } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
+import { routing } from "./i18n/routing";
+
+const handleI18n = createMiddleware(routing);
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Pass API routes and OAuth callback straight through
+  if (
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/auth") ||
+    pathname.includes(".")
+  ) {
+    return NextResponse.next();
+  }
+
+  // ── Supabase session refresh ─────────────────────────────
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -25,40 +41,54 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // Refresh the session — must be called before any redirect logic.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
+  // ── Auth guard on locale-prefixed paths ──────────────────
+  const localeMatch = pathname.match(/^\/(en|vi)(\/.*)?$/);
+  if (localeMatch) {
+    const locale = localeMatch[1];
+    const rest = localeMatch[2] ?? "/";
 
-  // Public paths that never need auth
-  const isPublic =
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/auth") ||
-    pathname.startsWith("/api");
+    const isPublic =
+      rest === "/" ||
+      rest.startsWith("/login") ||
+      rest.startsWith("/auth");
 
-  if (!isPublic && !user) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    if (!isPublic && !user) {
+      const loginUrl = new URL(`/${locale}/login`, request.url);
+      loginUrl.searchParams.set("next", pathname);
+      const res = NextResponse.redirect(loginUrl);
+      supabaseResponse.cookies
+        .getAll()
+        .forEach((c) => res.cookies.set(c.name, c.value));
+      return res;
+    }
+
+    if (rest.startsWith("/login") && user) {
+      const next = request.nextUrl.searchParams.get("next") ?? `/${locale}`;
+      const res = NextResponse.redirect(new URL(next, request.url));
+      supabaseResponse.cookies
+        .getAll()
+        .forEach((c) => res.cookies.set(c.name, c.value));
+      return res;
+    }
   }
 
-  // Redirect logged-in users away from the login page
-  if (pathname === "/login" && user) {
-    const dashboardUrl = request.nextUrl.clone();
-    dashboardUrl.pathname = "/";
-    dashboardUrl.search = "";
-    return NextResponse.redirect(dashboardUrl);
-  }
+  // ── next-intl locale routing ──────────────────────────────
+  const i18nResponse = handleI18n(request);
 
-  return supabaseResponse;
+  // Copy Supabase session cookies into the i18n response
+  supabaseResponse.cookies
+    .getAll()
+    .forEach((c) => i18nResponse.cookies.set(c.name, c.value));
+
+  return i18nResponse;
 }
 
 export const config = {
   matcher: [
-    // Run on all paths except Next.js internals and static files
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -99,6 +99,13 @@ export interface Database {
           macd_signal: number | null;
           macd_histogram: number | null;
           macd_crossover: "bullish" | "bearish" | "none" | null;
+          timeframe: string | null;
+          stop_loss: number | null;
+          take_profit: number | null;
+          beginner_explanation: string | null;
+          outcome: "win" | "loss" | "pending" | null;
+          outcome_price: number | null;
+          outcome_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -114,6 +121,13 @@ export interface Database {
           macd_signal?: number | null;
           macd_histogram?: number | null;
           macd_crossover?: "bullish" | "bearish" | "none" | null;
+          timeframe?: string | null;
+          stop_loss?: number | null;
+          take_profit?: number | null;
+          beginner_explanation?: string | null;
+          outcome?: "win" | "loss" | "pending" | null;
+          outcome_price?: number | null;
+          outcome_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -121,6 +135,13 @@ export interface Database {
           confidence?: number | null;
           risk?: "Low" | "Medium" | "High" | null;
           analysis?: string | null;
+          timeframe?: string | null;
+          stop_loss?: number | null;
+          take_profit?: number | null;
+          beginner_explanation?: string | null;
+          outcome?: "win" | "loss" | "pending" | null;
+          outcome_price?: number | null;
+          outcome_at?: string | null;
         };
         Relationships: [];
       };
@@ -197,6 +218,86 @@ export interface Database {
           },
         ];
       };
+      user_preferences: {
+        Row: {
+          user_id: string;
+          language: "en" | "vi";
+          trading_mode: "conservative" | "balanced" | "aggressive";
+          preferred_timeframe: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          language?: "en" | "vi";
+          trading_mode?: "conservative" | "balanced" | "aggressive";
+          preferred_timeframe?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          language?: "en" | "vi";
+          trading_mode?: "conservative" | "balanced" | "aggressive";
+          preferred_timeframe?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_commentary: {
+        Row: {
+          id: number;
+          content_en: string;
+          content_vi: string;
+          sentiment: "bullish" | "bearish" | "neutral" | null;
+          timeframe: string | null;
+          gold_price: number | null;
+          created_at: string;
+        };
+        Insert: {
+          content_en: string;
+          content_vi: string;
+          sentiment?: "bullish" | "bearish" | "neutral" | null;
+          timeframe?: string | null;
+          gold_price?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          content_en?: string;
+          content_vi?: string;
+        };
+        Relationships: [];
+      };
+      news_sentiment: {
+        Row: {
+          id: number;
+          headline: string;
+          source: string | null;
+          url: string | null;
+          sentiment: "bullish" | "bearish" | "neutral" | null;
+          summary_en: string | null;
+          summary_vi: string | null;
+          impact_score: number | null;
+          published_at: string | null;
+          analyzed_at: string;
+        };
+        Insert: {
+          headline: string;
+          source?: string | null;
+          url?: string | null;
+          sentiment?: "bullish" | "bearish" | "neutral" | null;
+          summary_en?: string | null;
+          summary_vi?: string | null;
+          impact_score?: number | null;
+          published_at?: string | null;
+          analyzed_at?: string;
+        };
+        Update: {
+          sentiment?: "bullish" | "bearish" | "neutral" | null;
+          summary_en?: string | null;
+          summary_vi?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -221,3 +322,9 @@ export type AlertHistoryRow =
   Database["public"]["Tables"]["alert_history"]["Row"];
 export type UserSettingsRow =
   Database["public"]["Tables"]["user_settings"]["Row"];
+export type UserPreferencesRow =
+  Database["public"]["Tables"]["user_preferences"]["Row"];
+export type AiCommentaryRow =
+  Database["public"]["Tables"]["ai_commentary"]["Row"];
+export type NewsSentimentRow =
+  Database["public"]["Tables"]["news_sentiment"]["Row"];

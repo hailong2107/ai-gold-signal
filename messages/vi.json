@@ -1,0 +1,199 @@
+{
+  "nav": {
+    "dashboard": "Bảng điều khiển",
+    "history": "Lịch sử",
+    "settings": "Cài đặt"
+  },
+  "dashboard": {
+    "title": "Tín hiệu Vàng AI",
+    "subtitle": "Phân tích thị trường vàng bằng AI theo thời gian thực",
+    "lastUpdate": "Cập nhật lúc",
+    "refresh": "Làm mới",
+    "marketOpen": "Thị trường mở cửa",
+    "marketClosed": "Thị trường đóng cửa"
+  },
+  "price": {
+    "label": "Giá Vàng XAU/USD",
+    "high": "Cao nhất",
+    "low": "Thấp nhất",
+    "change": "Thay đổi",
+    "trend": {
+      "up": "Tăng giá",
+      "down": "Giảm giá",
+      "neutral": "Đi ngang"
+    }
+  },
+  "signal": {
+    "label": "Tín hiệu AI",
+    "BUY": "MUA",
+    "SELL": "BÁN",
+    "HOLD": "GIỮ LỆNH",
+    "confidence": "Độ tin cậy",
+    "risk": "Mức rủi ro",
+    "stopLoss": "Cắt lỗ",
+    "takeProfit": "Chốt lời",
+    "timeframe": "Khung giờ"
+  },
+  "risk": {
+    "Low": "Thấp",
+    "Medium": "Trung bình",
+    "High": "Cao"
+  },
+  "analysis": {
+    "title": "Phân tích AI",
+    "beginner": "Điều này có nghĩa gì?",
+    "updated": "Cập nhật"
+  },
+  "indicators": {
+    "title": "Chỉ báo kỹ thuật",
+    "rsi": "RSI",
+    "ema20": "EMA 20",
+    "ema50": "EMA 50",
+    "macd": "MACD",
+    "status": {
+      "overbought": "Quá mua",
+      "oversold": "Quá bán",
+      "neutral": "Trung tính",
+      "bullish": "Tăng giá",
+      "bearish": "Giảm giá",
+      "uptrend": "Xu hướng tăng",
+      "downtrend": "Xu hướng giảm",
+      "crossover": "giao cắt"
+    }
+  },
+  "timeframes": {
+    "5M": "5 phút",
+    "15M": "15 phút",
+    "1H": "1 giờ",
+    "4H": "4 giờ",
+    "1D": "1 ngày",
+    "label": "Khung thời gian"
+  },
+  "commentary": {
+    "title": "Bình luận thị trường",
+    "subtitle": "Phân tích AI cập nhật mỗi 30 phút",
+    "bullish": "Tăng giá",
+    "bearish": "Giảm giá",
+    "neutral": "Trung tính"
+  },
+  "chat": {
+    "title": "Trợ lý Vàng AI",
+    "placeholder": "Hỏi về thị trường vàng, chỉ báo kỹ thuật...",
+    "send": "Gửi",
+    "thinking": "Đang phân tích...",
+    "greeting": "Xin chào! Tôi là Trợ lý Vàng AI của bạn. Hãy hỏi tôi bất cứ điều gì về thị trường vàng.",
+    "examples": [
+      "Nên mua vàng bây giờ không?",
+      "RSI có nghĩa gì?",
+      "Tại sao vàng đang tăng hôm nay?"
+    ]
+  },
+  "news": {
+    "title": "Tâm lý thị trường",
+    "subtitle": "Tin tức tài chính được phân tích bằng AI",
+    "bullish": "Tăng giá",
+    "bearish": "Giảm giá",
+    "neutral": "Trung tính",
+    "impact": "Mức tác động",
+    "noNews": "Không có tin tức"
+  },
+  "history": {
+    "title": "Lịch sử tín hiệu",
+    "subtitle": "Theo dõi hiệu suất tín hiệu AI của bạn",
+    "accuracy": "Độ chính xác",
+    "totalSignals": "Tổng tín hiệu",
+    "winRate": "Tỷ lệ thắng",
+    "avgConfidence": "Độ tin cậy TB",
+    "columns": {
+      "time": "Thời gian",
+      "signal": "Tín hiệu",
+      "price": "Giá",
+      "confidence": "Độ tin cậy",
+      "timeframe": "KGG",
+      "outcome": "Kết quả"
+    },
+    "outcomes": {
+      "win": "Thắng",
+      "loss": "Thua",
+      "open": "Đang mở",
+      "cancelled": "Đã huỷ"
+    },
+    "noHistory": "Chưa có tín hiệu"
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "subtitle": "Tuỳ chỉnh trải nghiệm giao dịch của bạn",
+    "sections": {
+      "preferences": "Tùy chọn",
+      "telegram": "Thông báo Telegram",
+      "alerts": "Cài đặt cảnh báo"
+    },
+    "language": "Ngôn ngữ",
+    "tradingMode": "Chế độ giao dịch",
+    "modes": {
+      "conservative": "Thận trọng",
+      "conservativeDesc": "Chỉ cảnh báo khi độ tin cậy > 80%. Ít tín hiệu hơn nhưng đáng tin cậy hơn.",
+      "balanced": "Cân bằng",
+      "balancedDesc": "Cảnh báo khi độ tin cậy > 70%. Cân bằng tần suất và chất lượng tốt.",
+      "aggressive": "Mạo hiểm",
+      "aggressiveDesc": "Cảnh báo khi độ tin cậy > 60%. Nhiều tín hiệu hơn, rủi ro cao hơn."
+    },
+    "telegramToken": "Bot Token",
+    "telegramTokenHint": "Lấy từ @BotFather trên Telegram",
+    "telegramChatId": "Chat ID",
+    "telegramChatIdHint": "Lấy từ @userinfobot trên Telegram",
+    "alertsEnabled": "Bật thông báo Telegram",
+    "alertsEnabledDesc": "Nhận cảnh báo khi có tín hiệu mới",
+    "crossoverAlerts": "Cảnh báo giao cắt MACD",
+    "crossoverAlertsDesc": "Cảnh báo khi MACD giao cắt tăng hoặc giảm",
+    "rsiAlerts": "Cảnh báo RSI đột phá",
+    "rsiAlertsDesc": "Cảnh báo khi RSI vào vùng quá mua (>70) hoặc quá bán (<30)",
+    "minConfidence": "Độ tin cậy tối thiểu",
+    "minConfidenceDesc": "Chỉ gửi cảnh báo khi vượt ngưỡng này",
+    "save": "Lưu cài đặt",
+    "saving": "Đang lưu...",
+    "saved": "Đã lưu!"
+  },
+  "learning": {
+    "rsi": {
+      "title": "RSI là gì?",
+      "body": "RSI (Chỉ số sức mạnh tương đối) đo lường tốc độ biến động giá vàng. RSI > 70 có nghĩa là vàng có thể đã bị mua quá nhiều (giá có thể giảm). RSI < 30 có nghĩa là vàng có thể đã bị bán quá nhiều (giá có thể tăng)."
+    },
+    "macd": {
+      "title": "MACD là gì?",
+      "body": "MACD cho thấy mối quan hệ giữa hai đường trung bình động. Khi đường MACD cắt lên trên đường tín hiệu, đây là dấu hiệu tăng giá. Khi cắt xuống dưới, đây là dấu hiệu giảm giá."
+    },
+    "ema": {
+      "title": "EMA là gì?",
+      "body": "EMA (Đường trung bình động hàm mũ) là chỉ báo theo xu hướng. Khi giá ở trên EMA20 và EMA50, vàng đang trong xu hướng tăng. Khi ở dưới, vàng đang trong xu hướng giảm."
+    },
+    "signal": {
+      "title": "Tín hiệu được tạo ra như thế nào?",
+      "body": "Tín hiệu kết hợp dữ liệu RSI, MACD và EMA, sau đó AI phân tích tất cả các chỉ báo cùng nhau để đưa ra khuyến nghị MUA, BÁN hoặc GIỮ LỆNH với điểm độ tin cậy."
+    }
+  },
+  "auth": {
+    "title": "Tín hiệu Vàng AI",
+    "subtitle": "Đăng nhập để truy cập bảng điều khiển",
+    "signIn": "Tiếp tục với Google",
+    "signing": "Đang chuyển hướng...",
+    "features": {
+      "title": "Bạn nhận được gì",
+      "items": [
+        "Tín hiệu giao dịch vàng AI theo thời gian thực",
+        "Phân tích kỹ thuật đa khung thời gian",
+        "Cài đặt cảnh báo Telegram cá nhân",
+        "Lịch sử tín hiệu & hiệu suất đầy đủ"
+      ]
+    },
+    "disclaimer": "Tín hiệu AI chỉ mang tính giáo dục — không phải lời khuyên tài chính.",
+    "error": "Xác thực thất bại. Vui lòng thử lại."
+  },
+  "common": {
+    "loading": "Đang tải...",
+    "error": "Đã xảy ra lỗi",
+    "retry": "Thử lại",
+    "signOut": "Đăng xuất",
+    "back": "Quay lại"
+  }
+}

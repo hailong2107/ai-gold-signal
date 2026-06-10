@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AISignal, GoldPrice, TechnicalIndicators } from "@/types";
-import type { UserSettingsRow } from "@/types/database";
+import type { UserSettingsRow, UserPreferencesRow } from "@/types/database";
 
 // ------- Cron deduplication state -------
 
@@ -43,6 +43,10 @@ export async function saveAiSignal(
       confidence: signal.confidence,
       risk: signal.risk,
       analysis: signal.analysis,
+      beginner_explanation: signal.beginnerExplanation,
+      stop_loss: signal.stopLoss,
+      take_profit: signal.takeProfit,
+      timeframe: signal.timeframe,
       gold_price: price.price,
       rsi: indicators.rsi,
       ema20: indicators.ema20,
@@ -163,5 +167,93 @@ export async function getAlertHistory(userId: string, limit = 20) {
     .limit(limit);
 
   if (error) return [];
+  return data ?? [];
+}
+
+// ------- User Preferences -------
+
+export async function getUserPreferences(
+  userId: string
+): Promise<UserPreferencesRow | null> {
+  const db = createAdminClient();
+  const { data } = await db
+    .from("user_preferences")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+  return data ?? null;
+}
+
+export async function upsertUserPreferences(
+  userId: string,
+  prefs: Partial<Omit<UserPreferencesRow, "user_id" | "created_at" | "updated_at">>
+): Promise<boolean> {
+  const db = createAdminClient();
+  const { error } = await db.from("user_preferences").upsert(
+    { user_id: userId, ...prefs, updated_at: new Date().toISOString() },
+    { onConflict: "user_id" }
+  );
+  if (error) {
+    console.error("upsertUserPreferences:", error.message);
+    return false;
+  }
+  return true;
+}
+
+// ------- Signal history with stats -------
+
+export async function getSignalHistory(limit = 50) {
+  const db = createAdminClient();
+  const { data } = await db
+    .from("ai_signals")
+    .select("id, signal, confidence, risk, gold_price, timeframe, stop_loss, take_profit, outcome, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return data ?? [];
+}
+
+export async function saveNewsSentiment(
+  items: Array<{
+    headline: string;
+    source?: string;
+    url?: string;
+    sentiment: "bullish" | "bearish" | "neutral";
+    summaryEn: string;
+    summaryVi: string;
+    impactScore: number;
+  }>
+): Promise<void> {
+  const db = createAdminClient();
+  await db.from("news_sentiment").insert(
+    items.map((item) => ({
+      headline: item.headline,
+      source: item.source ?? null,
+      url: item.url ?? null,
+      sentiment: item.sentiment,
+      summary_en: item.summaryEn,
+      summary_vi: item.summaryVi,
+      impact_score: item.impactScore,
+    }))
+  );
+}
+
+export async function getLatestNews(limit = 6) {
+  const db = createAdminClient();
+  const { data } = await db
+    .from("news_sentiment")
+    .select("*")
+    .order("analyzed_at", { ascending: false })
+    .limit(limit);
+  return data ?? [];
+}
+
+// ------- Per-user alert preferences (include language for Telegram) -------
+
+export async function getAllAlertUsersWithPrefs() {
+  const db = createAdminClient();
+  const { data } = await db
+    .from("user_settings")
+    .select("*, user_preferences!inner(language)")
+    .eq("alerts_enabled", true);
   return data ?? [];
 }

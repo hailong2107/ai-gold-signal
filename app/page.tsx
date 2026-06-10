@@ -1,9 +1,6 @@
-import { Dashboard } from "@/components/Dashboard";
+import { redirect } from "next/navigation";
 
-export default function Home() {
-  return (
-    <main className="min-h-screen">
-      <Dashboard />
-    </main>
-  );
+// next-intl middleware handles / → /en redirect, this is a fallback.
+export default function RootPage() {
+  redirect("/en");
 }

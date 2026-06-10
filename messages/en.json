@@ -1,0 +1,199 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "history": "History",
+    "settings": "Settings"
+  },
+  "dashboard": {
+    "title": "AI Gold Signal",
+    "subtitle": "Real-time AI-powered gold market analysis",
+    "lastUpdate": "Last update",
+    "refresh": "Refresh",
+    "marketOpen": "Market Open",
+    "marketClosed": "Market Closed"
+  },
+  "price": {
+    "label": "XAU/USD Gold Price",
+    "high": "High",
+    "low": "Low",
+    "change": "Change",
+    "trend": {
+      "up": "Bullish",
+      "down": "Bearish",
+      "neutral": "Neutral"
+    }
+  },
+  "signal": {
+    "label": "AI Signal",
+    "BUY": "BUY",
+    "SELL": "SELL",
+    "HOLD": "HOLD",
+    "confidence": "Confidence",
+    "risk": "Risk Level",
+    "stopLoss": "Stop Loss",
+    "takeProfit": "Take Profit",
+    "timeframe": "Timeframe"
+  },
+  "risk": {
+    "Low": "Low",
+    "Medium": "Medium",
+    "High": "High"
+  },
+  "analysis": {
+    "title": "AI Analysis",
+    "beginner": "What does this mean?",
+    "updated": "Updated"
+  },
+  "indicators": {
+    "title": "Technical Indicators",
+    "rsi": "RSI",
+    "ema20": "EMA 20",
+    "ema50": "EMA 50",
+    "macd": "MACD",
+    "status": {
+      "overbought": "Overbought",
+      "oversold": "Oversold",
+      "neutral": "Neutral",
+      "bullish": "Bullish",
+      "bearish": "Bearish",
+      "uptrend": "Uptrend",
+      "downtrend": "Downtrend",
+      "crossover": "crossover"
+    }
+  },
+  "timeframes": {
+    "5M": "5M",
+    "15M": "15M",
+    "1H": "1H",
+    "4H": "4H",
+    "1D": "1D",
+    "label": "Timeframe"
+  },
+  "commentary": {
+    "title": "Market Commentary",
+    "subtitle": "AI-generated analysis updated every 30 minutes",
+    "bullish": "Bullish",
+    "bearish": "Bearish",
+    "neutral": "Neutral"
+  },
+  "chat": {
+    "title": "AI Gold Copilot",
+    "placeholder": "Ask about gold markets, indicators, or signals...",
+    "send": "Send",
+    "thinking": "Thinking...",
+    "greeting": "Hi! I'm your AI Gold Copilot. Ask me anything about the gold market.",
+    "examples": [
+      "Should I buy gold now?",
+      "What does RSI mean?",
+      "Why is gold bullish today?"
+    ]
+  },
+  "news": {
+    "title": "Market Sentiment",
+    "subtitle": "AI-analyzed financial news",
+    "bullish": "Bullish",
+    "bearish": "Bearish",
+    "neutral": "Neutral",
+    "impact": "Impact",
+    "noNews": "No news available"
+  },
+  "history": {
+    "title": "Signal History",
+    "subtitle": "Track your AI signal performance",
+    "accuracy": "Accuracy",
+    "totalSignals": "Total Signals",
+    "winRate": "Win Rate",
+    "avgConfidence": "Avg. Confidence",
+    "columns": {
+      "time": "Time",
+      "signal": "Signal",
+      "price": "Price",
+      "confidence": "Confidence",
+      "timeframe": "TF",
+      "outcome": "Outcome"
+    },
+    "outcomes": {
+      "win": "Win",
+      "loss": "Loss",
+      "open": "Open",
+      "cancelled": "Cancelled"
+    },
+    "noHistory": "No signals yet"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Customize your trading experience",
+    "sections": {
+      "preferences": "Preferences",
+      "telegram": "Telegram Alerts",
+      "alerts": "Alert Settings"
+    },
+    "language": "Language",
+    "tradingMode": "Trading Mode",
+    "modes": {
+      "conservative": "Conservative",
+      "conservativeDesc": "Alerts only above 80% confidence. Fewer but more reliable signals.",
+      "balanced": "Balanced",
+      "balancedDesc": "Alerts above 70% confidence. Good balance of frequency and quality.",
+      "aggressive": "Aggressive",
+      "aggressiveDesc": "Alerts above 60% confidence. More signals, higher risk."
+    },
+    "telegramToken": "Bot Token",
+    "telegramTokenHint": "From @BotFather on Telegram",
+    "telegramChatId": "Chat ID",
+    "telegramChatIdHint": "Get from @userinfobot on Telegram",
+    "alertsEnabled": "Enable Telegram alerts",
+    "alertsEnabledDesc": "Receive alerts when signals are generated",
+    "crossoverAlerts": "MACD crossover alerts",
+    "crossoverAlertsDesc": "Alert when bullish or bearish MACD crossover occurs",
+    "rsiAlerts": "RSI breakout alerts",
+    "rsiAlertsDesc": "Alert when RSI enters overbought (>70) or oversold (<30)",
+    "minConfidence": "Minimum confidence",
+    "minConfidenceDesc": "Only send alerts above this confidence threshold",
+    "save": "Save Settings",
+    "saving": "Saving...",
+    "saved": "Saved!"
+  },
+  "learning": {
+    "rsi": {
+      "title": "What is RSI?",
+      "body": "RSI (Relative Strength Index) measures how fast gold's price is moving. Above 70 means gold may be overbought (price could drop). Below 30 means gold may be oversold (price could rise)."
+    },
+    "macd": {
+      "title": "What is MACD?",
+      "body": "MACD shows the relationship between two moving averages. When the MACD line crosses above the signal line, it's a bullish sign. When it crosses below, it's bearish."
+    },
+    "ema": {
+      "title": "What is EMA?",
+      "body": "EMA (Exponential Moving Average) is a trend-following indicator. When price is above EMA20 and EMA50, gold is in an uptrend. When below, it's in a downtrend."
+    },
+    "signal": {
+      "title": "How are signals generated?",
+      "body": "Signals combine RSI, MACD, and EMA data, then AI analyzes all indicators together to produce a BUY, SELL, or HOLD recommendation with a confidence score."
+    }
+  },
+  "auth": {
+    "title": "AI Gold Signal",
+    "subtitle": "Sign in to access your dashboard",
+    "signIn": "Continue with Google",
+    "signing": "Redirecting...",
+    "features": {
+      "title": "What you get",
+      "items": [
+        "Real-time AI gold trading signals",
+        "Multi-timeframe technical analysis",
+        "Personal Telegram alert settings",
+        "Full signal history & performance"
+      ]
+    },
+    "disclaimer": "AI signals are educational only — not financial advice.",
+    "error": "Authentication failed. Please try again."
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "signOut": "Sign out",
+    "back": "Back"
+  }
+}

@@ -3,19 +3,19 @@ import { fetchGoldPrice, fetchHistoricalPrices } from "@/services/gold";
 import { calculateIndicators } from "@/utils/indicators";
 import { analyzeWithGemini } from "@/services/gemini";
 import { sendTelegramAlert } from "@/services/telegram";
+import { saveCommentary } from "@/services/commentary";
 import {
   saveAiSignal,
   saveGoldPrice,
-  getAllAlertUsers,
   saveAlertHistory,
+  getAllAlertUsersWithPrefs,
   getCronState,
   saveCronState,
 } from "@/services/database";
 
 export const dynamic = "force-dynamic";
 
-// Minimum gap between alerts of the same signal type (1 hour)
-const MIN_REPEAT_INTERVAL_MS = 60 * 60 * 1000;
+const MIN_REPEAT_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -24,23 +24,23 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 1. Fetch market data + last cron state in parallel
     const [price, history, prevState] = await Promise.all([
       fetchGoldPrice(),
-      fetchHistoricalPrices(),
+      fetchHistoricalPrices("1H"),
       getCronState(),
     ]);
 
     const indicators = calculateIndicators(history);
-    const signal = await analyzeWithGemini(price, indicators);
+    const signal = await analyzeWithGemini(price, indicators, "1H");
 
-    // 2. Persist snapshot
+    // Persist signal + price + commentary in parallel
     const [signalId] = await Promise.all([
       saveAiSignal(signal, indicators, price),
       saveGoldPrice(price),
+      saveCommentary(price, indicators),
     ]);
 
-    // 3. Deduplication — decide whether to send an alert
+    // Deduplication logic
     const now = Date.now();
     const lastAlertedAt = prevState.last_alerted_at
       ? new Date(prevState.last_alerted_at).getTime()
@@ -52,48 +52,39 @@ export async function GET(request: Request) {
       indicators.macd.crossover !== "none" &&
       indicators.macd.crossover !== prevState.last_crossover;
     const rsiBreakout = indicators.rsi < 30 || indicators.rsi > 70;
-    // Allow resending the same signal only after MIN_REPEAT_INTERVAL_MS
     const repeatAllowed = msSinceLastAlert >= MIN_REPEAT_INTERVAL_MS;
 
-    const shouldAlert =
-      (signalChanged ||
-        newCrossover ||
-        rsiBreakout) &&
-      repeatAllowed;
+    const shouldAlert = (signalChanged || newCrossover || rsiBreakout) && repeatAllowed;
 
-    // 4. Fan-out to all subscribed users
     let alertsSent = 0;
-    let alertSkipped = false;
 
     if (shouldAlert) {
-      const alertUsers = await getAllAlertUsers();
+      const alertUsers = await getAllAlertUsersWithPrefs();
 
       await Promise.all(
-        alertUsers.map(async (userSettings) => {
+        alertUsers.map(async (row) => {
+          const prefs = (row as unknown as { user_preferences: { language: "en" | "vi" } | null })
+            .user_preferences;
+          const locale = prefs?.language ?? "en";
+
           const meetsThreshold =
-            signal.confidence >= userSettings.min_confidence ||
-            (userSettings.alert_on_crossover && newCrossover) ||
-            (userSettings.alert_on_rsi_breakout && rsiBreakout);
+            signal.confidence >= row.min_confidence ||
+            (row.alert_on_crossover && newCrossover) ||
+            (row.alert_on_rsi_breakout && rsiBreakout);
 
           if (!meetsThreshold) return;
 
           const success = await sendTelegramAlert(signal, price, {
-            botToken: userSettings.telegram_bot_token,
-            chatId: userSettings.telegram_chat_id,
+            botToken: row.telegram_bot_token,
+            chatId: row.telegram_chat_id,
+            locale,
           });
 
-          await saveAlertHistory(
-            userSettings.user_id,
-            signalId,
-            "telegram",
-            success
-          );
-
+          await saveAlertHistory(row.user_id, signalId, "telegram", success);
           if (success) alertsSent++;
         })
       );
 
-      // 5. Update cron state so next run knows what was last sent
       await saveCronState({
         last_signal: signal.signal,
         last_crossover:
@@ -103,8 +94,6 @@ export async function GET(request: Request) {
         last_alerted_at: alertsSent > 0 ? new Date().toISOString() : prevState.last_alerted_at,
       });
     } else {
-      alertSkipped = true;
-      // Still update last_signal so next run detects future changes correctly
       await saveCronState({
         last_signal: signal.signal,
         last_crossover: prevState.last_crossover,
@@ -117,9 +106,6 @@ export async function GET(request: Request) {
       signal: signal.signal,
       confidence: signal.confidence,
       signalId,
-      reason: alertSkipped
-        ? `skipped — ${signalChanged ? "" : "no signal change, "}${!repeatAllowed ? `next alert in ${Math.round((MIN_REPEAT_INTERVAL_MS - msSinceLastAlert) / 60000)}min` : "conditions not met"}`
-        : `sent (signalChanged=${signalChanged}, newCrossover=${newCrossover}, rsiBreakout=${rsiBreakout})`,
       alertsSent,
       timestamp: new Date().toISOString(),
     });
