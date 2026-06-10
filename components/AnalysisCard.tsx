@@ -15,7 +15,7 @@ export function AnalysisCard({ signal }: { signal: AISignal }) {
           </span>
         </div>
         <p className="leading-relaxed text-zinc-200">{signal.analysis}</p>
-        <div className="mt-4 text-xs text-zinc-600">
+        <div className="mt-4 text-xs text-zinc-600" suppressHydrationWarning>
           Updated {new Date(signal.timestamp).toLocaleTimeString()}
         </div>
       </CardContent>

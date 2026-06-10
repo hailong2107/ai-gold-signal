@@ -9,6 +9,29 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      cron_state: {
+        Row: {
+          id: number;
+          last_signal: string | null;
+          last_crossover: string | null;
+          last_alerted_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          last_signal?: string | null;
+          last_crossover?: string | null;
+          last_alerted_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          last_signal?: string | null;
+          last_crossover?: string | null;
+          last_alerted_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       users: {
         Row: {
           id: string;

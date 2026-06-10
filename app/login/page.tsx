@@ -1,20 +1,20 @@
 import { LoginForm } from "./_components/LoginForm";
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { next?: string; error?: string };
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
+  const { next, error } = await searchParams;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
-      {/* Subtle gradient background */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-40 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-yellow-500/5 blur-3xl" />
         <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-purple-500/5 blur-3xl" />
       </div>
 
       <div className="relative w-full max-w-md">
-        {/* Logo + title */}
         <div className="mb-8 text-center">
           <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-500/10 ring-1 ring-yellow-500/20">
             <span className="text-3xl">📊</span>
@@ -25,7 +25,7 @@ export default function LoginPage({
           </p>
         </div>
 
-        <LoginForm next={searchParams.next} error={searchParams.error} />
+        <LoginForm next={next} error={error} />
 
         <p className="mt-6 text-center text-xs text-zinc-700">
           AI signals are educational only — not financial advice.

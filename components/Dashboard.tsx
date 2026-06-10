@@ -75,7 +75,7 @@ export function Dashboard() {
         </div>
         <div className="flex items-center gap-3">
           {lastUpdate && (
-            <span className="text-xs text-zinc-600">
+            <span className="text-xs text-zinc-600" suppressHydrationWarning>
               {lastUpdate.toLocaleTimeString()}
             </span>
           )}

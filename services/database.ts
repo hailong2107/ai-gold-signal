@@ -2,6 +2,32 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { AISignal, GoldPrice, TechnicalIndicators } from "@/types";
 import type { UserSettingsRow } from "@/types/database";
 
+// ------- Cron deduplication state -------
+
+export interface CronState {
+  last_signal: string | null;
+  last_crossover: string | null;
+  last_alerted_at: string | null;
+}
+
+export async function getCronState(): Promise<CronState> {
+  const db = createAdminClient();
+  const { data } = await db
+    .from("cron_state")
+    .select("last_signal, last_crossover, last_alerted_at")
+    .eq("id", 1)
+    .single();
+  return data ?? { last_signal: null, last_crossover: null, last_alerted_at: null };
+}
+
+export async function saveCronState(state: CronState): Promise<void> {
+  const db = createAdminClient();
+  await db.from("cron_state").upsert(
+    { id: 1, ...state, updated_at: new Date().toISOString() },
+    { onConflict: "id" }
+  );
+}
+
 // ------- Writes (service role, called from cron / signal route) -------
 
 export async function saveAiSignal(
