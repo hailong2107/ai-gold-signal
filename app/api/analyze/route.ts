@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { fetchGoldPrice, fetchHistoricalPrices } from "@/services/gold";
 import { calculateIndicators, calculateIndicatorSeries } from "@/utils/indicators";
 import { analyzeWithGemini } from "@/services/gemini";
+import { maybeSendAlerts } from "@/services/alerts";
 import type { Timeframe } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -21,9 +22,12 @@ export async function GET(request: Request) {
 
     const indicators = calculateIndicators(history);
     const indicatorSeries = calculateIndicatorSeries(history);
-
-    // Run Gemini in parallel — cached result returns instantly
     const signal = await analyzeWithGemini(price, indicators, timeframe);
+
+    // Fire-and-forget — send Telegram immediately for BUY/SELL, don't block response
+    if (signal.signal !== "HOLD") {
+      void maybeSendAlerts(signal, price, indicators);
+    }
 
     return NextResponse.json({ price, indicators, indicatorSeries, signal, history, timeframe });
   } catch {
