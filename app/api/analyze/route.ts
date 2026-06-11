@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { fetchGoldPrice, fetchHistoricalPrices } from "@/services/gold";
 import { calculateIndicators, calculateIndicatorSeries } from "@/utils/indicators";
 import { analyzeWithGemini } from "@/services/gemini";
@@ -24,9 +24,11 @@ export async function GET(request: Request) {
     const indicatorSeries = calculateIndicatorSeries(history);
     const signal = await analyzeWithGemini(price, indicators, timeframe);
 
-    // Fire-and-forget — send Telegram immediately for BUY/SELL, don't block response
+    // after() runs AFTER the response is sent — Vercel keeps the function alive for this
     if (signal.signal !== "HOLD") {
-      void maybeSendAlerts(signal, price, indicators);
+      after(async () => {
+        await maybeSendAlerts(signal, price, indicators);
+      });
     }
 
     return NextResponse.json({ price, indicators, indicatorSeries, signal, history, timeframe });

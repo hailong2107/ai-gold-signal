@@ -71,6 +71,36 @@ gemini-2.5-flash  →  gemini-2.0-flash  →  gemma-4-31b-it  →  gemma-3-27b-i
 
 ## BUG FIXES — critical logic (do not revert)
 
+### FIX 7 — History: `outcome` column always null (`services/database.ts`, `app/api/cron/route.ts`)
+
+**Problem:** The `outcome` field on `ai_signals` was never set — no code evaluated whether a BUY/SELL signal hit take_profit or stop_loss. History page showed "—" for every row.
+
+**Fix:** Added `evaluateSignalOutcomes(currentPrice)` in `database.ts`:
+- Queries all `ai_signals` rows where `outcome IS NULL` and TP/SL are set
+- For BUY: if `currentPrice >= take_profit` → `outcome = "win"`, if `<= stop_loss` → `"loss"`
+- For SELL: reversed logic
+- Called from cron on every run alongside other tasks — result returned as `outcomesUpdated` in cron response
+
+---
+
+### FIX 6 — Telegram: `void maybeSendAlerts()` killed by Vercel before running (`app/api/analyze/route.ts`)
+
+**Problem:** `void maybeSendAlerts()` fire-and-forget is terminated immediately when the HTTP response is sent on Vercel serverless. The function never ran — zero logs, zero Telegram messages.
+
+**Fix:** Use `after()` from `next/server` (Next.js 15+). `after()` registers a callback that runs **after the response is sent**, and Vercel keeps the function instance alive until it completes.
+
+```ts
+import { NextResponse, after } from "next/server";
+// ...
+after(async () => {
+  await maybeSendAlerts(signal, price, indicators);
+});
+```
+
+Never use `void asyncFn()` for background work in Next.js API routes on serverless — use `after()` instead.
+
+---
+
 ### FIX 1 — Telegram: HOLD was being sent + dedup was wrong (`services/alerts.ts`)
 
 **Problem:** Old cron sent HOLD signals to Telegram. Also `shouldAlert` had `|| cooldownOk` which re-sent the same BUY/SELL signal every 30 minutes regardless of signal change.

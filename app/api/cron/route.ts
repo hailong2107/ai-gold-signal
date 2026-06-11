@@ -4,7 +4,7 @@ import { calculateIndicators } from "@/utils/indicators";
 import { analyzeWithGemini } from "@/services/gemini";
 import { saveCommentary } from "@/services/commentary";
 import { maybeSendAlerts } from "@/services/alerts";
-import { saveAiSignal, saveGoldPrice } from "@/services/database";
+import { saveAiSignal, saveGoldPrice, evaluateSignalOutcomes } from "@/services/database";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
@@ -25,12 +25,12 @@ export async function GET(request: Request) {
     const indicators = calculateIndicators(history);
     const signal = await analyzeWithGemini(price, indicators, "1H");
 
-    // Persist + commentary + alerts + news refresh in parallel
-    const [alertResult, , newsResult] = await Promise.all([
-      maybeSendAlerts(signal, price, indicators),
-      saveCommentary(price, indicators),
-      // Refresh news every cron run — POST to own endpoint
-      fetch(`${BASE_URL}/api/news`, {
+    // Persist + commentary + alerts + news + outcome evaluation in parallel
+    const [alertResult, , outcomesUpdated, newsResult] = await Promise.all([
+      maybeSendAlerts(signal, price, indicators),              // 0
+      saveCommentary(price, indicators),                        // 1
+      evaluateSignalOutcomes(price.price),                      // 2
+      fetch(`${BASE_URL}/api/news`, {                           // 3
         method: "POST",
         headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
       }).then((r) => r.json()).catch(() => ({ count: 0 })),
@@ -46,6 +46,7 @@ export async function GET(request: Request) {
       confidence: signal.confidence,
       alertsSent: alertResult.sent,
       alertReason: alertResult.reason,
+      outcomesUpdated,
       newsCount: (newsResult as { count?: number }).count ?? 0,
       timestamp: new Date().toISOString(),
     });

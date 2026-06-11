@@ -202,6 +202,50 @@ export async function upsertUserPreferences(
 
 // ------- Signal history with stats -------
 
+/**
+ * Auto-evaluate open BUY/SELL signals against current price.
+ * Sets outcome = "win" if price crossed take_profit, "loss" if crossed stop_loss.
+ * Called by cron on every run — safe to call frequently, only updates null-outcome rows.
+ */
+export async function evaluateSignalOutcomes(currentPrice: number): Promise<number> {
+  const db = createAdminClient();
+
+  const { data: open, error } = await db
+    .from("ai_signals")
+    .select("id, signal, stop_loss, take_profit")
+    .is("outcome", null)
+    .not("stop_loss", "is", null)
+    .not("take_profit", "is", null)
+    .in("signal", ["BUY", "SELL"]);
+
+  if (error || !open?.length) return 0;
+
+  let updated = 0;
+  await Promise.all(
+    open.map(async (row) => {
+      const sl = row.stop_loss as number;
+      const tp = row.take_profit as number;
+      let outcome: "win" | "loss" | null = null;
+
+      if (row.signal === "BUY") {
+        if (currentPrice >= tp) outcome = "win";
+        else if (currentPrice <= sl) outcome = "loss";
+      } else {
+        // SELL
+        if (currentPrice <= tp) outcome = "win";
+        else if (currentPrice >= sl) outcome = "loss";
+      }
+
+      if (outcome) {
+        await db.from("ai_signals").update({ outcome }).eq("id", row.id);
+        updated++;
+      }
+    })
+  );
+
+  return updated;
+}
+
 export async function getSignalHistory(limit = 50) {
   const db = createAdminClient();
   const { data } = await db
