@@ -45,8 +45,8 @@ export async function maybeSendAlerts(
     const [prevState, signalId] = await Promise.all([
       getCronState(),
       saveAiSignal(signal, indicators, price),
-      saveGoldPrice(price),
-    ]);
+      saveGoldPrice(price),  // fire in parallel; result unused
+    ] as const);
 
     const now = Date.now();
     const lastAlertedAt = prevState.last_alerted_at

@@ -251,9 +251,11 @@ export async function getLatestNews(limit = 6) {
 
 export async function getAllAlertUsersWithPrefs() {
   const db = createAdminClient();
-  const { data } = await db
+  // LEFT JOIN — users without preferences row still get included (default to "en")
+  const { data, error } = await db
     .from("user_settings")
-    .select("*, user_preferences!inner(language)")
+    .select("*, user_preferences(language)")
     .eq("alerts_enabled", true);
+  if (error) console.error("getAllAlertUsersWithPrefs error:", error.message);
   return data ?? [];
 }

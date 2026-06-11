@@ -87,6 +87,18 @@ const shouldAlert =
   (rsiBreakout && cooldownOk);            // RSI extreme, but respect cooldown
 ```
 
+### FIX 3 — Telegram: `user_preferences!inner` silently excluded users (`services/database.ts`)
+
+**Problem:** `getAllAlertUsersWithPrefs()` used `user_preferences!inner(language)` (INNER JOIN). Any user with `alerts_enabled = true` but no row in `user_preferences` was silently excluded — no Telegram message ever sent.
+
+**Fix:** Changed to LEFT JOIN: `.select("*, user_preferences(language)")` — users without preferences row default to locale `"en"`.
+
+### FIX 4 — Telegram: `parse_mode: "HTML"` caused silent 400 rejections (`services/telegram.ts`)
+
+**Problem:** Telegram API rejects messages with `parse_mode: "HTML"` if text contains unescaped `<`, `>`, or `&`. Gemini analysis text regularly contains these. `sendMessage` caught the error but returned `false` silently — no logs, no delivery.
+
+**Fix:** Removed `parse_mode` entirely — plain text delivery. Added error logging: logs full Telegram response body on failure and logs `sent=ok signal=X chatId=...` on every attempt.
+
 ### FIX 2 — News: "No news available" all day (`app/api/news/route.ts`)
 
 **Problem:** `GET /api/news` only read from DB (`getLatestNews()`). `POST /api/news` (RSS fetch + Gemini analysis) was auth-gated and never called by the cron. DB was always empty → UI showed "No news available".

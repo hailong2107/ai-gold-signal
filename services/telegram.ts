@@ -19,37 +19,33 @@ function buildMessage(
     const riskLabel =
       signal.risk === "Low" ? "Thấp" : signal.risk === "Medium" ? "Trung bình" : "Cao";
 
-    let msg = `🚨 TÍN HIỆU VÀNG AI
-
-${emoji} Tín hiệu: ${signalLabel}
-💯 Độ tin cậy: ${signal.confidence}%
-⚠️ Mức rủi ro: ${riskLabel}
-🕐 Khung giờ: ${signal.timeframe}
-💰 Giá vàng: $${price.price}`;
-
-    if (signal.stopLoss) msg += `\n🛑 Cắt lỗ: $${signal.stopLoss}`;
-    if (signal.takeProfit) msg += `\n🎯 Chốt lời: $${signal.takeProfit}`;
-
-    msg += `\n\n📊 Phân tích AI:\n${signal.analysis}\n\n💡 Dành cho người mới:\n${signal.beginnerExplanation}`;
-    msg += `\n\n🕐 ${new Date(signal.timestamp).toUTCString()}`;
-    msg += `\n\n⚠️ Chỉ mang tính tham khảo — không phải lời khuyên tài chính.`;
+    let msg = `🚨 TÍN HIỆU VÀNG AI\n\n`;
+    msg += `${emoji} Tín hiệu: ${signalLabel}\n`;
+    msg += `💯 Độ tin cậy: ${signal.confidence}%\n`;
+    msg += `⚠️ Mức rủi ro: ${riskLabel}\n`;
+    msg += `🕐 Khung giờ: ${signal.timeframe}\n`;
+    msg += `💰 Giá vàng: $${price.price}\n`;
+    if (signal.stopLoss)   msg += `🛑 Cắt lỗ: $${signal.stopLoss.toFixed(2)}\n`;
+    if (signal.takeProfit) msg += `🎯 Chốt lời: $${signal.takeProfit.toFixed(2)}\n`;
+    msg += `\n📊 Phân tích AI:\n${signal.analysis}\n`;
+    msg += `\n💡 Dành cho người mới:\n${signal.beginnerExplanation}\n`;
+    msg += `\n🕐 ${new Date(signal.timestamp).toUTCString()}\n`;
+    msg += `\n⚠️ Chỉ mang tính tham khảo — không phải lời khuyên tài chính.`;
     return msg;
   }
 
-  let msg = `🚨 GOLD AI SIGNAL
-
-${emoji} Signal: ${signal.signal}
-💯 Confidence: ${signal.confidence}%
-⚠️ Risk: ${signal.risk}
-🕐 Timeframe: ${signal.timeframe}
-💰 Price: $${price.price}`;
-
-  if (signal.stopLoss) msg += `\n🛑 Stop Loss: $${signal.stopLoss}`;
-  if (signal.takeProfit) msg += `\n🎯 Take Profit: $${signal.takeProfit}`;
-
-  msg += `\n\n📊 AI Analysis:\n${signal.analysis}\n\n💡 For beginners:\n${signal.beginnerExplanation}`;
-  msg += `\n\n🕐 ${new Date(signal.timestamp).toUTCString()}`;
-  msg += `\n\n⚠️ Educational only — not financial advice.`;
+  let msg = `🚨 GOLD AI SIGNAL\n\n`;
+  msg += `${emoji} Signal: ${signal.signal}\n`;
+  msg += `💯 Confidence: ${signal.confidence}%\n`;
+  msg += `⚠️ Risk: ${signal.risk}\n`;
+  msg += `🕐 Timeframe: ${signal.timeframe}\n`;
+  msg += `💰 Price: $${price.price}\n`;
+  if (signal.stopLoss)   msg += `🛑 Stop Loss: $${signal.stopLoss.toFixed(2)}\n`;
+  if (signal.takeProfit) msg += `🎯 Take Profit: $${signal.takeProfit.toFixed(2)}\n`;
+  msg += `\n📊 AI Analysis:\n${signal.analysis}\n`;
+  msg += `\n💡 For beginners:\n${signal.beginnerExplanation}\n`;
+  msg += `\n🕐 ${new Date(signal.timestamp).toUTCString()}\n`;
+  msg += `\n⚠️ Educational only — not financial advice.`;
   return msg;
 }
 
@@ -60,11 +56,19 @@ async function sendMessage(creds: TelegramCredentials, text: string): Promise<bo
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: creds.chatId, text, parse_mode: "HTML" }),
+        // No parse_mode — plain text avoids HTML/Markdown special-char rejections
+        body: JSON.stringify({ chat_id: creds.chatId, text }),
       }
     );
-    return res.ok;
-  } catch {
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[telegram] sendMessage failed ${res.status}: ${body}`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[telegram] sendMessage exception:", err);
     return false;
   }
 }
@@ -83,12 +87,12 @@ export async function sendTelegramAlert(
   const locale = options?.locale ?? "en";
 
   if (!botToken || !chatId) {
-    console.warn("Telegram credentials not configured");
+    console.warn("[telegram] credentials missing — botToken or chatId not set");
     return false;
   }
 
-  return sendMessage(
-    { botToken, chatId },
-    buildMessage(signal, price, locale)
-  );
+  const text = buildMessage(signal, price, locale);
+  const ok = await sendMessage({ botToken, chatId }, text);
+  console.log(`[telegram] alert sent=${ok} signal=${signal.signal} chatId=${chatId.slice(0, 6)}...`);
+  return ok;
 }
