@@ -46,9 +46,17 @@ export interface AISignal {
   timestamp: number;
 }
 
+export interface IndicatorSeries {
+  ema20: Array<{ time: number; value: number }>;
+  ema50: Array<{ time: number; value: number }>;
+  rsi: Array<{ time: number; value: number }>;
+  macd: Array<{ time: number; macd: number; signal: number; histogram: number }>;
+}
+
 export interface DashboardData {
   price: GoldPrice;
   indicators: TechnicalIndicators;
+  indicatorSeries: IndicatorSeries;
   signal: AISignal;
   history: HistoricalPrice[];
   timeframe: Timeframe;

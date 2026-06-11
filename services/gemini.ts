@@ -7,6 +7,46 @@ import type { GoldPrice, TechnicalIndicators, AISignal, Timeframe } from "@/type
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");
 
+// Model fallback chain — try best models first, fall back automatically on rate limits.
+// Gemma models (gemma-*) are free-tier with very generous quotas on Google AI Studio.
+const GEMINI_MODELS = [
+  "gemini-2.5-flash",      // best quality, rate-limited on free tier
+  "gemini-2.0-flash",      // fast, good quality
+  "gemma-4-31b-it",        // Gemma 4 31B — free, very generous quota
+  "gemma-3-27b-it",        // Gemma 3 27B — free
+  "gemini-1.5-flash",      // older Gemini, stable
+  "gemini-1.5-flash-8b",   // lightest Gemini
+  "gemma-3-12b-it",        // smallest free Gemma — last resort
+] as const;
+
+function isRateLimit(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes("429") ||
+    msg.includes("quota") ||
+    msg.includes("resource_exhausted") ||
+    msg.includes("rate limit") ||
+    msg.includes("too many requests")
+  );
+}
+
+async function callGemini(prompt: string): Promise<string> {
+  let lastErr: unknown;
+  for (const modelName of GEMINI_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    } catch (err) {
+      lastErr = err;
+      if (!isRateLimit(err)) throw err; // non-rate-limit errors — surface immediately
+      // Rate limited — try next model in chain
+    }
+  }
+  throw lastErr;
+}
+
 export async function analyzeWithGemini(
   price: GoldPrice,
   indicators: TechnicalIndicators,
@@ -15,8 +55,6 @@ export async function analyzeWithGemini(
   // ── Cache check ──────────────────────────────────────────────────────
   const cached = await getCachedSignal<AISignal>(timeframe, price.price);
   if (cached) return cached;
-
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `You are a professional gold (XAU/USD) market analyst. Analyze the data below and return a JSON trading signal.
 
@@ -57,8 +95,7 @@ Respond ONLY with valid JSON:
 }`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const text = await callGemini(prompt);
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON found in response");
 
@@ -94,8 +131,6 @@ export async function generateCommentary(
   const cached = await getCachedCommentary<{ en: string; vi: string; sentiment: "bullish" | "bearish" | "neutral" }>();
   if (cached) return cached;
 
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
   const prompt = `You are a senior gold market analyst. Write a short market commentary based on the data below.
 
 Gold Price: $${price.price} (${price.changePercent >= 0 ? "+" : ""}${price.changePercent}%)
@@ -121,8 +156,7 @@ Respond ONLY with JSON:
 }`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const text = await callGemini(prompt);
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("No JSON");
 
@@ -154,10 +188,9 @@ export async function generateChatResponse(
     locale: string;
   }
 ): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const isVi = context.locale === "vi";
 
-  const systemContext = `You are an AI Gold Trading Copilot. Be helpful, honest, and clear.
+  const prompt = `You are an AI Gold Trading Copilot. Be helpful, honest, and clear.
 Current market data:
 - Gold Price: $${context.price.price} (${context.price.changePercent}%)
 - AI Signal: ${context.signal.signal} (${context.signal.confidence}% confidence, ${context.signal.risk} risk)
@@ -168,11 +201,12 @@ IMPORTANT:
 - Never promise profits or guarantee future prices.
 - Always say signals are for educational purposes only.
 - Keep answers concise (2-4 sentences max).
-- Respond in ${isVi ? "Vietnamese (natural, not robotic)" : "English"}.`;
+- Respond in ${isVi ? "Vietnamese (natural, not robotic)" : "English"}.
+
+User: ${message}`;
 
   try {
-    const result = await model.generateContent(`${systemContext}\n\nUser: ${message}`);
-    return result.response.text();
+    return await callGemini(prompt);
   } catch {
     return isVi
       ? "Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này. Vui lòng thử lại."
@@ -189,8 +223,6 @@ export async function analyzeNewsSentiment(headlines: string[]): Promise<
     impactScore: number;
   }>
 > {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
   const prompt = `Analyze these gold market headlines and classify their sentiment.
 
 Headlines:
@@ -214,8 +246,7 @@ Respond ONLY with JSON array:
 ]`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const text = await callGemini(prompt);
     const match = text.match(/\[[\s\S]*\]/);
     if (!match) return [];
 

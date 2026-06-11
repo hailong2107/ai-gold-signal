@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchGoldPrice, fetchHistoricalPrices } from "@/services/gold";
-import { calculateIndicators } from "@/utils/indicators";
+import { calculateIndicators, calculateIndicatorSeries } from "@/utils/indicators";
 import { analyzeWithGemini } from "@/services/gemini";
 import type { Timeframe } from "@/types";
 
@@ -20,9 +20,12 @@ export async function GET(request: Request) {
     ]);
 
     const indicators = calculateIndicators(history);
+    const indicatorSeries = calculateIndicatorSeries(history);
+
+    // Run Gemini in parallel — cached result returns instantly
     const signal = await analyzeWithGemini(price, indicators, timeframe);
 
-    return NextResponse.json({ price, indicators, signal, history, timeframe });
+    return NextResponse.json({ price, indicators, indicatorSeries, signal, history, timeframe });
   } catch {
     return NextResponse.json(
       { error: "Failed to analyze market" },
