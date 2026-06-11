@@ -9,17 +9,20 @@ import {
 } from "./database";
 import type { AISignal, GoldPrice, TechnicalIndicators } from "@/types";
 
-// Minimum gap between repeated alerts for the SAME signal (30 min)
-const MIN_REPEAT_INTERVAL_MS = 30 * 60 * 1000;
+// Minimum gap between alerts for the SAME trigger (crossover/RSI), prevents back-to-back spam
+const SAME_TRIGGER_COOLDOWN_MS = 30 * 60 * 1000; // 30 min
 
 type AlertResult = {
   sent: number;
-  reason: string | null;
+  reason: string;
   skipped: boolean;
 };
 
 /**
  * Check dedup rules and fan-out Telegram alerts to all subscribed users.
+ * - HOLD signal → never sent
+ * - Signal changed to BUY/SELL → always sent (no cooldown)
+ * - Same signal but new MACD crossover or RSI breakout → sent if 30+ min since last alert
  * Safe to call fire-and-forget — never throws.
  */
 export async function maybeSendAlerts(
@@ -28,9 +31,8 @@ export async function maybeSendAlerts(
   indicators: TechnicalIndicators
 ): Promise<AlertResult> {
   try {
-    // Only BUY / SELL trigger immediate alerts — HOLD is passive
+    // HOLD is passive — update state but never alert
     if (signal.signal === "HOLD") {
-      // Still update cron_state so cron doesn't re-alert stale data
       const prev = await getCronState();
       await saveCronState({
         last_signal: "HOLD",
@@ -51,18 +53,42 @@ export async function maybeSendAlerts(
       ? new Date(prevState.last_alerted_at).getTime()
       : 0;
     const msSinceLast = now - lastAlertedAt;
+    const cooldownOk = msSinceLast >= SAME_TRIGGER_COOLDOWN_MS;
 
-    const signalChanged = signal.signal !== prevState.last_signal;
+    const signalChanged =
+      signal.signal !== prevState.last_signal &&
+      (signal.signal === "BUY" || signal.signal === "SELL");
+
     const newCrossover =
       indicators.macd.crossover !== "none" &&
       indicators.macd.crossover !== prevState.last_crossover;
-    const rsiBreakout = indicators.rsi < 30 || indicators.rsi > 70;
-    const cooldownOk = msSinceLast >= MIN_REPEAT_INTERVAL_MS;
 
-    const shouldAlert = signalChanged || newCrossover || rsiBreakout || cooldownOk;
+    const rsiBreakout = indicators.rsi < 30 || indicators.rsi > 70;
+
+    // Signal change always fires immediately. Crossover/RSI fire only after cooldown.
+    const shouldAlert =
+      signalChanged ||
+      (newCrossover && cooldownOk) ||
+      (rsiBreakout && cooldownOk);
+
+    const reason = signalChanged
+      ? `signal changed ${prevState.last_signal ?? "null"} → ${signal.signal}`
+      : newCrossover
+        ? `MACD ${indicators.macd.crossover} crossover`
+        : rsiBreakout
+          ? `RSI breakout (${indicators.rsi})`
+          : "no trigger";
+
+    console.log(`[alerts] shouldAlert=${shouldAlert} reason="${reason}" cooldownOk=${cooldownOk}`);
 
     if (!shouldAlert) {
-      return { sent: 0, reason: "dedup — same signal within cooldown", skipped: true };
+      // Still update last_signal so next change is detected
+      await saveCronState({
+        last_signal: signal.signal,
+        last_crossover: prevState.last_crossover,
+        last_alerted_at: prevState.last_alerted_at,
+      });
+      return { sent: 0, reason, skipped: true };
     }
 
     const alertUsers = await getAllAlertUsersWithPrefs();
@@ -101,9 +127,10 @@ export async function maybeSendAlerts(
       last_alerted_at: sent > 0 ? new Date().toISOString() : prevState.last_alerted_at,
     });
 
-    return { sent, reason: signalChanged ? "signal changed" : "fresh signal", skipped: false };
+    console.log(`[alerts] sent=${sent} reason="${reason}"`);
+    return { sent, reason, skipped: false };
   } catch (err) {
     console.error("[alerts] maybeSendAlerts error:", err);
-    return { sent: 0, reason: "error", skipped: true };
+    return { sent: 0, reason: `error: ${err}`, skipped: true };
   }
 }
