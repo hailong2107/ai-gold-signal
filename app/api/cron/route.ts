@@ -6,6 +6,8 @@ import { saveCommentary } from "@/services/commentary";
 import { maybeSendAlerts } from "@/services/alerts";
 import { saveAiSignal, saveGoldPrice } from "@/services/database";
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -23,12 +25,16 @@ export async function GET(request: Request) {
     const indicators = calculateIndicators(history);
     const signal = await analyzeWithGemini(price, indicators, "1H");
 
-    // Persist + commentary + alerts in parallel
-    const [alertResult] = await Promise.all([
+    // Persist + commentary + alerts + news refresh in parallel
+    const [alertResult, , newsResult] = await Promise.all([
       maybeSendAlerts(signal, price, indicators),
       saveCommentary(price, indicators),
-      // maybeSendAlerts already calls saveAiSignal + saveGoldPrice internally,
-      // but for HOLD signals it skips those — save explicitly for HOLD
+      // Refresh news every cron run — POST to own endpoint
+      fetch(`${BASE_URL}/api/news`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+      }).then((r) => r.json()).catch(() => ({ count: 0 })),
+      // HOLD skips saveAiSignal in maybeSendAlerts — save explicitly
       ...(signal.signal === "HOLD"
         ? [saveAiSignal(signal, indicators, price), saveGoldPrice(price)]
         : []),
@@ -40,6 +46,7 @@ export async function GET(request: Request) {
       confidence: signal.confidence,
       alertsSent: alertResult.sent,
       alertReason: alertResult.reason,
+      newsCount: (newsResult as { count?: number }).count ?? 0,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
