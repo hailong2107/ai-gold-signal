@@ -71,6 +71,19 @@ gemini-2.5-flash  →  gemini-2.0-flash  →  gemma-4-31b-it  →  gemma-3-27b-i
 
 ## BUG FIXES — critical logic (do not revert)
 
+### FIX 8 — Telegram live alerts: no DB users → empty alert list → nothing sent (`services/alerts.ts`)
+
+**Problem:** `maybeSendAlerts` calls `getAllAlertUsersWithPrefs()` which queries `user_settings WHERE alerts_enabled = true`. If the user hasn't saved their settings via the web UI (no row in `user_settings`), this returns an empty array and no message is ever sent — even though `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` env vars are correctly set (which is why the test endpoint works but live signals don't).
+
+**Fix:**
+- If `alertUsers.length === 0` AND env-level bot credentials are present → fall back to sending to env bot (locale `vi`)
+- If users exist in DB but have no per-user bot token → fall back to env-level bot token/chat for that user
+- `min_confidence` defaults to `0` (not `row.min_confidence`) when null so signals always pass threshold
+
+**Always check `GET /api/telegram?secret=CRON_SECRET` to diagnose** — shows `dbAlertUsers.count`, fallback status, and `cronState`.
+
+---
+
 ### FIX 7 — History: `outcome` column always null (`services/database.ts`, `app/api/cron/route.ts`)
 
 **Problem:** The `outcome` field on `ai_signals` was never set — no code evaluated whether a BUY/SELL signal hit take_profit or stop_loss. History page showed "—" for every row.

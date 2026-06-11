@@ -94,29 +94,53 @@ export async function maybeSendAlerts(
     const alertUsers = await getAllAlertUsersWithPrefs();
     let sent = 0;
 
-    await Promise.all(
-      alertUsers.map(async (row) => {
-        const prefs = (row as unknown as { user_preferences: { language: "en" | "vi" } | null })
-          .user_preferences;
-        const locale = prefs?.language ?? "en";
-
-        const meetsThreshold =
-          signal.confidence >= row.min_confidence ||
-          (row.alert_on_crossover && newCrossover) ||
-          (row.alert_on_rsi_breakout && rsiBreakout);
-
-        if (!meetsThreshold) return;
-
+    if (alertUsers.length === 0) {
+      // No users configured in DB — fall back to env-level credentials
+      const envToken = process.env.TELEGRAM_BOT_TOKEN;
+      const envChat = process.env.TELEGRAM_CHAT_ID;
+      if (envToken && envChat) {
+        console.log("[alerts] no DB users — using env-level bot credentials");
         const success = await sendTelegramAlert(signal, price, {
-          botToken: row.telegram_bot_token,
-          chatId: row.telegram_chat_id,
-          locale,
+          botToken: envToken,
+          chatId: envChat,
+          locale: "vi",
         });
-
-        await saveAlertHistory(row.user_id, signalId, "telegram", success);
         if (success) sent++;
-      })
-    );
+      } else {
+        console.warn("[alerts] no DB users and no env TELEGRAM_BOT_TOKEN/CHAT_ID set");
+      }
+    } else {
+      await Promise.all(
+        alertUsers.map(async (row) => {
+          const prefs = (row as unknown as { user_preferences: { language: "en" | "vi" } | null })
+            .user_preferences;
+          const locale = prefs?.language ?? "en";
+
+          // Use per-user bot token if set, otherwise fall back to env-level
+          const botToken = row.telegram_bot_token ?? process.env.TELEGRAM_BOT_TOKEN;
+          const chatId = row.telegram_chat_id ?? process.env.TELEGRAM_CHAT_ID;
+
+          if (!botToken || !chatId) {
+            console.warn(`[alerts] user ${row.user_id} has no bot token/chat ID configured`);
+            return;
+          }
+
+          const meetsThreshold =
+            signal.confidence >= (row.min_confidence ?? 0) ||
+            (row.alert_on_crossover && newCrossover) ||
+            (row.alert_on_rsi_breakout && rsiBreakout);
+
+          if (!meetsThreshold) {
+            console.log(`[alerts] user ${row.user_id} skipped — confidence ${signal.confidence}% < threshold ${row.min_confidence}%`);
+            return;
+          }
+
+          const success = await sendTelegramAlert(signal, price, { botToken, chatId, locale });
+          await saveAlertHistory(row.user_id, signalId, "telegram", success);
+          if (success) sent++;
+        })
+      );
+    }
 
     await saveCronState({
       last_signal: signal.signal,
